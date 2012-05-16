@@ -1,3 +1,4 @@
+require 'toft/node/lxc_node'
 require 'toft/node'
 
 module Toft
@@ -9,7 +10,7 @@ module Toft
     end
     
     def create_node(hostname, options)
-      node = Node.new(hostname, options)
+      node = Node.factory(:LXC).new(hostname, options)
       node.add_observer self
       @nodes[hostname] = node
     end

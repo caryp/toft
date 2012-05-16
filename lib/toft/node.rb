@@ -5,6 +5,7 @@ require 'toft/file_checker'
 require 'toft/command_executor'
 
 module Toft
+  
   class Node
     PRIVATE_KEY = <<-EOF
 -----BEGIN RSA PRIVATE KEY-----
@@ -41,6 +42,17 @@ CQWv13UgQjiHgQILXSb7xdzpWK1wpDoqIEWQugRyPQDeZhPWVbB4Lg==
     
     include Observable
     include Toft::CommandExecutor
+    
+    def self.factory(hypervisor_type = :LXC)
+      class_name = ""
+      case hypervisor_type
+      when :LXC
+        class_name = "Toft::LXCNode"
+      else
+        raise "ERROR: hypervisor of type #{hypervisor_type} not supported."
+      end
+      eval(class_name)
+    end
 
     def initialize(hostname, options = {})
       options = {:ip => DYNAMIC_IP, :netmask => "24", :type => "natty"}.merge(options)
@@ -48,8 +60,7 @@ CQWv13UgQjiHgQILXSb7xdzpWK1wpDoqIEWQugRyPQDeZhPWVbB4Lg==
       @ip = options[:ip]
       @netmask = options[:netmask]
       unless exists?
-        conf_file = generate_lxc_config
-        cmd! "lxc-create -n #{hostname} -f #{conf_file} -t #{options[:type].to_s}" 
+        create(hostname, options)
       end
       @chef_runner = Toft::Chef::ChefRunner.new("#{rootfs}") do |chef_command|
         run_ssh chef_command
@@ -65,31 +76,33 @@ CQWv13UgQjiHgQILXSb7xdzpWK1wpDoqIEWQugRyPQDeZhPWVbB4Lg==
       return @hostname
     end
     
+    def create(hostname, options)
+      raise "not implemented"
+    end
+    
     def exists?
-      cmd("lxc-ls") =~ /#{@hostname}/
+      raise "not implemented"
     end
 
     def start
       puts "Starting host node..."
-      cmd "lxc-start -n #{@hostname} -d" # system + sudo lxc-start does not work on centos-6, but back-quote does(no clue on why)
-      cmd! "lxc-wait -n #{@hostname} -s RUNNING"
+      vm_start
       wait_ssh_ready
     end
 
     def stop
-      cmd! "lxc-stop -n #{@hostname}"
-      cmd! "lxc-wait -n #{@hostname} -s STOPPED"
+      raise "not implemented"
     end
 
     def destroy
       stop
-      cmd! "lxc-destroy -n #{@hostname}"
+      vm_destroy
       changed
       notify_observers(@hostname)
     end
-
+    
     def running?
-      cmd("lxc-info -n #{@hostname}") =~ /RUNNING/
+      raise "not implemented"
     end
     
     def add_cname(cname)
@@ -159,11 +172,8 @@ CQWv13UgQjiHgQILXSb7xdzpWK1wpDoqIEWQugRyPQDeZhPWVbB4Lg==
     end
     
     def wait_sshd_running
-      wait_for do
-        netstat = cmd("lxc-netstat --name #{@hostname} -ta")        
-        return if netstat =~ /ssh/
-      end
-    end
+      raise "not implemented"
+    end    
     
     def wait_remote_host_reachable
       wait_for do
@@ -199,22 +209,6 @@ CQWv13UgQjiHgQILXSb7xdzpWK1wpDoqIEWQugRyPQDeZhPWVbB4Lg==
       print "\nWaiting for host to be reachable"
       wait_remote_host_reachable
       puts "\nSSH connection on '#{@hostname}/#{@ip}' is ready."
-    end
-
-    def generate_lxc_config
-      full_ip = @ip == Toft::DYNAMIC_IP ? "#{@ip}" : "#{@ip}/#{@netmask}"
-      conf = <<-EOF
-lxc.network.type = veth
-lxc.network.flags = up
-lxc.network.link = br0
-lxc.network.name = eth0
-lxc.network.ipv4 = #{full_ip}
-      EOF
-      conf_file = "/tmp/#{@hostname}-conf"
-      File.open(conf_file, 'w') do |f|
-        f.write(conf);
-      end
-      return conf_file
     end
     
     def fqdn
