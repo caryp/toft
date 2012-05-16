@@ -12,7 +12,7 @@ module Toft
     end
     
     def create_node(hostname, options)
-      node = Node.factory(:LXC).new(hostname, options)
+      node = Node::Node.factory().new(hostname, options)
       node.add_observer self
       @nodes[hostname] = node
     end
