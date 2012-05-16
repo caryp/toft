@@ -1,4 +1,6 @@
-require 'toft/node/lxc_node'
+Dir.glob(File.join(File.dirname(__FILE__), "node", "*.rb")).each do |f|
+  require f
+end
 require 'toft/node'
 
 module Toft

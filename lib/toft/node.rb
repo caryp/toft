@@ -42,17 +42,6 @@ CQWv13UgQjiHgQILXSb7xdzpWK1wpDoqIEWQugRyPQDeZhPWVbB4Lg==
     
     include Observable
     include Toft::CommandExecutor
-    
-    def self.factory(hypervisor_type = :LXC)
-      class_name = ""
-      case hypervisor_type
-      when :LXC
-        class_name = "Toft::LXCNode"
-      else
-        raise "ERROR: hypervisor of type #{hypervisor_type} not supported."
-      end
-      eval(class_name)
-    end
 
     def initialize(hostname, options = {})
       options = {:ip => DYNAMIC_IP, :netmask => "24", :type => "natty"}.merge(options)
@@ -214,6 +203,36 @@ CQWv13UgQjiHgQILXSb7xdzpWK1wpDoqIEWQugRyPQDeZhPWVbB4Lg==
     def fqdn
       "#{@hostname}.#{Toft::DOMAIN}"
     end
+
+
+    # Create correct node for our virtualization environment
+    # === Returns
+    # clazz(Class): a node class defined in node directory
+    def self.factory
+      eval("Toft::#{virtualization}Node")
+    end
+
+    # Try to decern if we are setup for Linux Containers or KVM
+    # === Returns
+    # type(Symbol): virtualization type (i.e :LXC or :KVM)
+    def self.virtualization
+      type = :LXC # Linux Containers is default
+
+      if File.exists?("/proc/modules")
+        modules = File.read("/proc/modules")
+        if modules =~ /^kvm/
+          type = :KVM
+        end
+      end
+      
+      if File.exists?("/proc/cpuinfo")
+        if File.read("/proc/cpuinfo") =~ /QEMU Virtual CPU/
+          type = :KVM
+        end
+      end
+      type
+    end
+    
   end
   
   class CommandResult
